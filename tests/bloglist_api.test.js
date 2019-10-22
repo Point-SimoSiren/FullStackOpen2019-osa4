@@ -1,51 +1,33 @@
 
 const supertest = require('supertest')
 const mongoose = require('mongoose')
+const helper = require('./test_helper')
+
 const app = require('../app')
 const api = supertest(app)
+
 const Blog = require('../models/blog')
 
-const initialBlogs = [
-    {
-        title: 'Inspiring IoT Projects',
-        author: 'Simo Siren',
-        url: 'projiot.com',
-        likes: 10
-    },
-    {
-        title: 'Gardening Fun',
-        author: 'Maisa Talo',
-        url: 'torplant.fi',
-        likes: 8
-    }
-
-]
-
+//Alustus
 beforeEach(async () => {
     await Blog.deleteMany({})
 
-    let blogObject = new Blog(initialBlogs[0])
+    let blogObject = new Blog(helper.initialBlogs[0])
     await blogObject.save()
 
-    blogObject = new Blog(initialBlogs[1])
+    blogObject = new Blog(helper.initialBlogs[1])
     await blogObject.save()
 })
 
-describe('viewing a specific blog', () => {
-    test('return blog of right array index', async () => {
-        const blogsAtStart = initialBlogs
-
-        const noteToView = blogsAtStart[0]
-
-        const result = await api
-            .get('/api/blogs/')
-            .expect(200)
-            .expect('Content-Type', /application\/json/)
-
-        expect(result.body[0].url).toEqual(noteToView.url)
+//Id kenttänimen muodon testaaminen (id, eikä _id)
+/* describe('id form in response', () => {
+    test('id test', async () => {
+        const response = await api.get('/api/blogs/0')
+        expect()
     })
-})
+}) */
 
+//Palautettavien blogien muoto on json ja statuskoodi 200
 test('Blogs are returned as json', async () => {
     await api
         .get('/api/blogs')
@@ -53,11 +35,35 @@ test('Blogs are returned as json', async () => {
         .expect('Content-Type', /application\/json/)
 })
 
+//Kaikki blogit tulee kutsun mukana
 test('all blogs are returned', async () => {
     const response = await api.get('/api/blogs')
-    expect(response.body.length).toBe(initialBlogs.length)
+    expect(response.body.length).toBe(helper.initialBlogs.length)
 })
 
+//Lisäys onnistuu
+test('a valid blog can be added ', async () => {
+    const newBlog = {
+        title: 'Testing hints and expreriences',
+        author: 'Lyyti Laukkonen',
+        url: 'tester.blogspot.com',
+        likes: 30,
+    }
+
+    await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await helper.blogsInDb()
+    expect(blogsAtEnd.length).toBe(helper.initialBlogs.length + 1)
+
+    const title = blogsAtEnd.map(n => n.title)
+    expect(title).toContain(
+        'Testing hints and expreriences'
+    )
+})
 
 afterAll(() => {
     mongoose.connection.close()
